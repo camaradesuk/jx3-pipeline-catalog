@@ -1,0 +1,49 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: pr-endpoint-deploy
+spec:
+  stepTemplate:
+    name: ""
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+    volumeMounts:
+      - mountPath: /home/jenkins
+        name: workspace-volume
+      - mountPath: /etc/podinfo
+        name: podinfo
+        readOnly: true
+    workingDir: /workspace/source
+  steps:
+    - name: nuget-config-subst
+      image: gcr.io/jenkinsxio/builder-dotnet:2.1.150-771
+      env:
+        - name: NEXUS_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: nexus-credentials
+              key: username
+        - name: NEXUS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: nexus-credentials
+              key: password
+      script: |
+        if [ $(cat /workspace/.skip) = "skip" ]
+        then
+          echo "skipping step"
+          exit 0
+        fi
+        source .jx/variables.sh
+        envsubst < nuget.config.template > nuget.config
+  volumes:
+  - emptyDir: {}
+    name: workspace-volume
+  - downwardAPI:
+      items:
+      - fieldRef:
+          fieldPath: metadata.labels
+        path: labels
+    name: podinfo

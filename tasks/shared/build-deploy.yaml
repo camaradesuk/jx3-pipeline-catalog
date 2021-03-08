@@ -1,0 +1,257 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: release-build-deploy-container
+spec:
+  stepTemplate:
+    name: ""
+    volumeMounts:
+      - mountPath: /home/jenkins
+        name: workspace-volume
+      - mountPath: /etc/podinfo
+        name: podinfo
+        readOnly: true
+    workingDir: /workspace/source
+  steps:  
+    - name: build-container-build-debug
+      image: gcr.io/kaniko-project/executor:debug-v1.3.0
+      resources:
+        requests:
+          cpu: 400m
+          memory: 600Mi
+      script: |
+        #!/busybox/sh
+        if [ $(cat /workspace/.skip) = "skip" ]
+        then
+          echo "skipping step"
+          exit 0
+        fi
+        source .jx/variables.sh
+        echo "about to build container with kaniko"
+        echo "KANIKO FLAGS: ${KANIKO_FLAGS}"
+        SUFFIX=".Web"
+        DOCKERFILE_PATH=/workspace/source/${PROJECT_NAME}/Dockerfile
+        if [ "${PROJECT_NAME}" != "${PROJECT_NAME%$SUFFIX}" ]
+        then
+          DOCKERFILE_PATH=/workspace/source/Dockerfile
+        fi
+        echo $DOCKERFILE_PATH
+        cp /tekton/creds-secrets/tekton-container-registry-auth/.dockerconfigjson /kaniko/.docker/config.json
+        /kaniko/executor $KANIKO_FLAGS --build-arg=build_configuration=DEBUG --cache=true --cache-ttl=72h --context=/workspace/source --dockerfile=${DOCKERFILE_PATH} --destination=$DOCKER_REGISTRY/$DOCKER_REGISTRY_ORG/$APP_NAME:${NUGET_VERSION}
+    - name: github-tag-prerelease
+      image: chrissena/gh:1.3.0
+      env:
+        - name: GITHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: jx-pipeline-git-github-github
+              key: password
+      script: |
+        if [ $(cat /workspace/.skip) = "skip" ]
+        then
+          echo "skipping step"
+          exit 0
+        fi
+        source .jx/variables.sh
+        CURRENT_SHA=$(git rev-parse HEAD)
+        APPEND="false"
+        MATCHED_SHA=$(git ls-remote --tags origin | grep -Po -m 1 $CURRENT_SHA || echo false)
+        if [ $MATCHED_SHA  = "false" ]
+        then
+          TAG_PRESENT="false"
+        elif [ $MATCHED_SHA  = $CURRENT_SHA ]
+        then
+          TAG_PRESENT="true"
+        else
+          echo "Something went wrong. Stopping..."
+          exit 1
+        fi
+        (
+          [ $TAG_PRESENT = "false" ] &&
+          gh release create v${NUGET_VERSION} -t "${PROJECT_NAME} v${NUGET_VERSION}" -p --target $CURRENT_SHA -F CHANGELOG.md -R ${REPO_URL}
+        ) || APPEND="true"
+        if [ $APPEND = "true" ]
+        then
+          API_URL=https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/tags/v${NUGET_VERSION}
+          RELEASE_JSON=$(curl -H "Authorization: token ${GITHUB_TOKEN}" -H "Accept: application/vnd.github.v3+json" ${API_URL})
+          RELEASE_URL=$(echo $RELEASE_JSON | jq -r .url)
+          OLD_NAME=$(echo $RELEASE_JSON | jq -r .name)
+          name="${PROJECT_NAME}, ${OLD_NAME}"
+          curl \
+            -X PATCH \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: token ${GITHUB_TOKEN}"\
+            ${RELEASE_URL} \
+            -d "{\"name\":\"$name\"}"
+        fi
+    - name: promote-jx-preview
+      image: gcr.io/jenkinsxio/jx-preview:0.0.143
+      resources: {}
+      env:
+        - name: RABBITMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: rabbit-mq
+              key: rabbitmq-password
+      script: |
+        #!/usr/bin/env sh
+        if [ $(cat /workspace/.skip) = "skip" ]
+        then
+          echo "skipping step"
+          exit 0
+        fi
+        source .jx/variables.sh
+        git clone https://github.com/camaradesuk/jxc /tmp/jx
+        cp -r /tmp/jx/local/ preview/local
+        PREVIEW_NAMESPACE_NAME="jx-${REPO_OWNER}-${REPO_NAME}-pr-${PULL_NUMBER}"
+        echo "adding virtualhost to rabbitmq for preview namespace ${PREVIEW_NAMESPACE_NAME}"
+        curl -u "rabbit:${RABBITMQ_PASSWORD}" -X PUT "http://rabbitmq.rabbitmq.svc.cluster.local:15672/api/vhosts/${PREVIEW_NAMESPACE_NAME}"
+        kubectl delete namespace "${PREVIEW_NAMESPACE_NAME}" || echo "namespace ${PREVIEW_NAMESPACE_NAME} not found so not deleted"
+        jx preview create
+        echo "syrf-web detected so saving url as https://syrf-${PREVIEW_NAMESPACE_NAME}.camarades.net"
+        echo "https://syrf-${PREVIEW_NAMESPACE_NAME}.camarades.net" > /workspace/source/auth-uri
+    - name: update-auth-client-uris
+      image: chrissena/identity-client-updater:1.4
+      env:
+        - name: ConnectionStrings__AzureSql
+          valueFrom:
+            secretKeyRef:
+              name: identity-server
+              key: connection-string
+      script: |
+        #!/bin/bash
+        if [ $(cat /workspace/.skip) = "skip" ]
+        then
+          echo "skipping step"
+          exit 0
+        fi
+        AUTH_URL=$(cat /workspace/source/auth-uri)
+        echo adding url ${AUTH_URL} to IdentityServer CORS, redirect and logout uris for SyRF client.
+        dotnet /app/IdentityClientUpdater.dll "${AUTH_URL}" "${AUTH_URL}/auth" "${AUTH_URL}/assets/callbacks/silent-refresh.html" "${AUTH_URL}/assets/callbacks/silentcallback.html"
+
+    - name: show-changes
+      image: gcr.io/jenkinsxio/builder-go:2.1.142-761
+      script: |
+        echo "changes since previous commit"
+        git diff HEAD~1 --name-only
+    - name: build-container-build
+      image: gcr.io/kaniko-project/executor:debug-v1.3.0
+      resources:
+        requests:
+          cpu: 400m
+          memory: 600Mi
+      script: |
+        #!/busybox/sh
+        if [ $(cat /workspace/.skip) = "skip" ]
+        then
+          echo "skipping step"
+          exit 0
+        fi
+        source .jx/variables.sh
+        echo "about to build container with kaniko"
+        echo "KANIKO FLAGS: ${KANIKO_FLAGS}"
+        SUFFIX=".Web"
+        DOCKERFILE_PATH=/workspace/source/${PROJECT_NAME}/Dockerfile
+        if [ "${PROJECT_NAME}" != "${PROJECT_NAME%$SUFFIX}" ]
+        then
+          DOCKERFILE_PATH=/workspace/source/Dockerfile
+        fi
+        echo $DOCKERFILE_PATH
+        cp /tekton/creds-secrets/tekton-container-registry-auth/.dockerconfigjson /kaniko/.docker/config.json
+        /kaniko/executor $KANIKO_FLAGS --cache=true --cache-ttl=72h --context=/workspace/source --dockerfile=${DOCKERFILE_PATH} --destination=$DOCKER_REGISTRY/$DOCKER_REGISTRY_ORG/$APP_NAME:${NUGET_VERSION}
+    - name: update-chart-values
+      image: gcr.io/jenkinsxio/builder-go:2.1.142-761
+      script: |
+        #!/bin/bash
+        if [ $(cat /workspace/.skip) = "skip" ]
+        then
+          echo "skipping step"
+          exit 0
+        fi
+        source .jx/variables.sh
+        if [ -d "/workspace/source/charts/$REPO_NAME" ]; then
+        sed -i -e "s/version:.*/version: $VERSION/g" ./charts/$REPO_NAME/Chart.yaml
+        sed -i -e "s/informationalVersion:.*/informationalVersion: $INFORMATIONAL_VERSION/g" ./charts/$REPO_NAME/Chart.yaml
+        sed -i -e "s/sha:.*/sha: $CURRENT_SHA/g" ./charts/$REPO_NAME/Chart.yaml
+        sed -i -e "s/imageRepo:.*/imageRepo: $DOCKER_REGISTRY\/$DOCKER_REGISTRY_ORG\/$APP_NAME/g" ./charts/$REPO_NAME/Chart.yaml
+        sed -i -e "s,gitRepo:.*,gitRepo: $REPO_URL,g" ./charts/$REPO_NAME/Chart.yaml;
+        else echo no charts; fi
+    - name: github-tag-release
+      image: chrissena/gh:1.3.0
+      env:
+        - name: GITHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: jx-pipeline-git-github-github
+              key: password
+      script: |
+        if [ $(cat /workspace/.skip) = "skip" ]
+        then
+          echo "skipping step"
+          exit 0
+        fi
+        source .jx/variables.sh
+        CURRENT_SHA=$(git rev-parse HEAD)
+        APPEND="false"
+        MATCHED_SHA=$(git ls-remote --tags origin | grep -Po -m 1 $CURRENT_SHA || echo false)
+        if [ $MATCHED_SHA  = "false" ]
+        then
+          TAG_PRESENT="false"
+        elif [ $MATCHED_SHA  = $CURRENT_SHA ]
+        then
+          TAG_PRESENT="true"
+        else
+          echo "Something went wrong. Stopping..."
+          exit 1
+        fi
+        (
+          [ $TAG_PRESENT = "false" ] &&
+          gh release create v${NUGET_VERSION} -t "${PROJECT_NAME} v${NUGET_VERSION}" --target $CURRENT_SHA -F CHANGELOG.md -R ${REPO_URL}
+        ) || APPEND="true"
+        if [ $APPEND = "true" ]
+        then
+          API_URL=https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/tags/v${NUGET_VERSION}
+          RELEASE_JSON=$(curl -H "Authorization: token ${GITHUB_TOKEN}" -H "Accept: application/vnd.github.v3+json" ${API_URL})
+          RELEASE_URL=$(echo $RELEASE_JSON | jq -r .url)
+          OLD_NAME=$(echo $RELEASE_JSON | jq -r .name)
+          name="${PROJECT_NAME}, ${OLD_NAME}"
+          curl \
+            -X PATCH \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: token ${GITHUB_TOKEN}"\
+            ${RELEASE_URL} \
+            -d "{\"name\":\"$name\"}"
+        fi
+    - name: push-helm-release
+      image: gcr.io/jenkinsxio/jx-boot:3.1.169
+      resources: {}
+      script: |
+        #!/usr/bin/env sh
+        if [ $(cat /workspace/.skip) = "skip" ]
+        then
+          echo "skipping step"
+          exit 0
+        fi
+        source .jx/variables.sh
+        jx gitops helm release
+    - name: promote-jx-promote
+      image: gcr.io/jenkinsxio/jx-promote:0.0.179
+      resources: {}
+      script: |
+        #!/usr/bin/env sh
+        if [ $(cat /workspace/.skip) = "skip" ]
+        then
+          echo "skipping step"
+          exit 0
+        fi
+        source .jx/variables.sh
+        jx promote -b --all-auto --timeout 1h --no-poll
+  volumes:
+  - emptyDir: {}
+    name: workspace-volume
+  - downwardAPI:
+      items:
+      - fieldRef:
+          fieldPath: metadata.labels
+        path: labels
+    name: podinfo

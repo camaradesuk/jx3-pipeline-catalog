@@ -1,0 +1,177 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: git-clone-version
+spec:
+  stepTemplate:
+    name: ""
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+    volumeMounts:
+      - mountPath: /home/jenkins
+        name: workspace-volume
+      - mountPath: /etc/podinfo
+        name: podinfo
+        readOnly: true
+    workingDir: /workspace/source
+  steps:
+    - name: git-clone
+      image: gcr.io/jenkinsxio/builder-jx:2.1.142-761
+      env:
+      - name: GITHUB_USERNAME
+        valueFrom:
+            secretKeyRef:
+              name: jx-pipeline-git-github-github
+              key: username
+      - name: GITHUB_TOKEN
+        valueFrom:
+            secretKeyRef:
+              name: jx-pipeline-git-github-github
+              key: password
+      script: |
+        #!/usr/bin/env bash
+        echo JOB_TYPE: $(params.JOB_TYPE)
+        mkdir -p $HOME
+        git config --global --add user.name $GITHUB_USERNAME
+        git config --global --add user.email ${GIT_AUTHOR_EMAIL:-jenkins-x@googlegroups.com}
+        git config --global credential.helper store
+        mkdir -p source
+        cd source
+        git init
+        git remote add origin ${REPO_URL}
+        git config --add remote.origin.fetch "+refs/pull/*/head:refs/remotes/pullrequest/*"
+        git fetch --force --tags --prune --no-recurse-submodules origin
+        if [ $JOB_TYPE = "presubmit" ]
+        then
+          LOCAL_PR_BRANCH="pr-${PULL_NUMBER}"
+          git fetch origin ${PULL_PULL_REF}:${LOCAL_PR_BRANCH}
+          git checkout ${LOCAL_PR_BRANCH}
+          echo checked out origin/${PULL_PULL_REF} as ${LOCAL_PR_BRANCH}
+        elif [ $JOB_TYPE = "postsubmit" ]
+        then
+          git checkout -b master origin/master
+          echo checked
+        else
+          echo pipeline is neither pre or postsubmit
+          exit 1
+        fi
+        if [[ $(git diff-tree --no-commit-id --name-only -r HEAD ) == "CHANGELOG.md" ]]
+        then
+          echo "CHANGELOG commit detected, setting skip..."
+          echo skip > /workspace/.skip
+          exit 0
+        else
+          echo false > /workspace/.skip
+          echo "CHANGELOG commit not detected. Safe to proceed."
+        fi
+      workingDir: /workspace
+    - name: git-setup
+      image: gcr.io/jenkinsxio/jx-cli:3.0.766
+      script: |
+        if [ $(cat /workspace/.skip) = "skip" ]
+        then
+          echo "skipping step"
+          exit 0
+        fi
+        jx gitops git setup --namespace jx-git-operator
+      workingDir: /workspace
+    - name: gitversion
+      image: gittools/gitversion:5.5.1-linux-alpine.3.10-x64-netcoreapp3.1
+      script: |
+        if [ $(cat /workspace/.skip) = "skip" ]
+        then
+          echo "skipping step"
+          exit 0
+        fi
+        /tools/dotnet-gitversion /workspace/source >> ../version.json
+        cat ../version.json
+    - name: jx-variables
+      image: gcr.io/jenkinsxio/jx-cli:3.0.766
+      script: |
+        if [ $(cat /workspace/.skip) = "skip" ]
+        then
+          echo "skipping step"
+          exit 0
+        fi
+        CURRENT_SHA=$(git rev-parse HEAD)
+        echo "Current SHA: ${CURRENT_SHA}"
+        jx gitops variables
+        git reset --mixed $CURRENT_SHA
+        echo "Current SHA: $(git rev-parse HEAD)"
+        echo "export CURRENT_SHA='$CURRENT_SHA'" >> .jx/variables.sh
+      resources: {}
+    - name: extra-variables
+      image: gcr.io/jenkinsxio/builder-jx:2.1.142-761
+      script: |
+        if [ $(cat /workspace/.skip) = "skip" ]
+        then
+          echo "skipping step"
+          exit 0
+        fi
+        SEMVER=$(cat ../version.json | jq -r .SemVer)
+        FULLSEMVER=$(cat ../version.json | jq -r .NuGetVersionV2)
+        INFORMATIONAL_VERSION=$(cat ../version.json | jq -r .InformationalVersion)
+        echo "export VERSION='$FULLSEMVER'" >> .jx/variables.sh
+        echo "export NUGET_VERSION='$FULLSEMVER'" >> .jx/variables.sh
+        echo "export INFORMATIONAL_VERSION='$INFORMATIONAL_VERSION'" >> .jx/variables.sh
+        PROJECT_KEY=$( 
+          ([[ ${JOB_NAME} == *"core-nuget-push"* ]] && echo coreProject) ||
+          ([[ ${JOB_NAME} == *"messages-nuget-push"* ]] && echo messagesProject) ||
+          ([[ ${JOB_NAME} == *"data-nuget-push"* ]] && echo dataProject) ||
+          ([[ ${JOB_NAME} == *"js-deploy"* ]] && echo js) ||
+          ([[ ${JOB_NAME} == *"endpoint-deploy"* ]] && echo endpointProject) ||
+          ([[ ${JOB_NAME} == *"lambda-deploy"* ]] && echo lambdaProject)
+        )
+        if [[ $PROJECT_KEY == "lambdaProject" ]]
+        then
+          echo lambdaProject detected... retrieving and saving lambda function name
+          LAMBDA_FUNCTION_NAME=$(
+            wget -qO- https://syrf-pipelines.s3-eu-west-1.amazonaws.com/repo-metadata.json |
+            jq -r --arg repo $REPO_NAME '.[$repo] | .lambdaFunctionName'
+          )
+          echo "export LAMBDA_FUNCTION_NAME='$LAMBDA_FUNCTION_NAME'" >> .jx/variables.sh
+          echo $LAMBDA_FUNCTION_NAME > ../lambda_function_name
+        fi
+        PROJECT_NAME=$(
+          wget -qO- https://syrf-pipelines.s3-eu-west-1.amazonaws.com/repo-metadata.json |
+          jq -r --arg repo $REPO_NAME --arg pk $PROJECT_KEY '.[$repo] | .[$pk]'
+        )
+        echo "setting PROJECT_NAME to ${PROJECT_NAME}"
+        if [[ $PROJECT_NAME == "null" || $PROJECT_NAME == "" ]]
+        then
+          echo "PROJECT_NAME not found. Failing pipeline..."
+          exit 1
+        fi
+        echo $PROJECT_NAME > ../project_name
+        echo "export PROJECT_NAME='$PROJECT_NAME'" >> .jx/variables.sh
+    - name: generate-changelog-file
+      image: gcr.io/jenkinsxio/builder-nodejs
+      script: |
+        if [ $(cat /workspace/.skip) = "skip" ]
+        then
+          echo "skipping step"
+          exit 0
+        fi
+        source .jx/variables.sh
+        npm install -g auto-changelog
+        PREVIOUS_TAG=$(git describe --tags  --abbrev=0 HEAD^ || echo)
+        PREVIOUS_RELEASE_TAG=$(git describe --tags  --abbrev=0 HEAD^  --match v[0-999].[0-999].[0-999] || echo)
+        git tag "v${NUGET_VERSION}" || echo "tag already in local clone"
+        if [ $JOB_TYPE = "presubmit" ]
+        then
+          auto-changelog --starting-version $PREVIOUS_TAG --hide-credit
+        elif [ $JOB_TYPE = "postsubmit" ]
+        then
+          auto-changelog --starting-version $PREVIOUS_RELEASE_TAG --hide-credit --tag-pattern "v[\d\.]+$"
+        fi
+  volumes:
+    - emptyDir: {}
+      name: workspace-volume
+    - downwardAPI:
+        items:
+        - fieldRef:
+            fieldPath: metadata.labels
+          path: labels
+      name: podinfo

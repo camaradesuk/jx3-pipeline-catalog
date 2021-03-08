@@ -1,0 +1,35 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: release-js-deploy
+  annotations:
+    "lighthouse.jenkins-x.io/prependStepsURL": "https://syrf-pipelines.s3-eu-west-1.amazonaws.com/git-clone-version.yaml"
+    "lighthouse.jenkins-x.io/appendStepsURL": "https://syrf-pipelines.s3-eu-west-1.amazonaws.com/release-build-deploy-container.yaml"
+spec:
+  stepTemplate:
+    name: ""
+    resources:
+      requests:
+        cpu: 600m
+        memory: 512Mi
+    volumeMounts:
+      - mountPath: /home/jenkins
+        name: workspace-volume
+      - mountPath: /etc/podinfo
+        name: podinfo
+        readOnly: true
+    workingDir: /workspace/source
+  steps:
+    - image: gcr.io/jenkinsxio/jx-cli:3.0.766
+      name: test
+      script: |
+        echo "TODO: unit test and publish coverage & results"
+  volumes:
+  - emptyDir: {}
+    name: workspace-volume
+  - downwardAPI:
+      items:
+      - fieldRef:
+          fieldPath: metadata.labels
+        path: labels
+    name: podinfo
