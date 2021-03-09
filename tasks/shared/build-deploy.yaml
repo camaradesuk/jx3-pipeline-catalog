@@ -37,7 +37,7 @@ spec:
         fi
         echo $DOCKERFILE_PATH
         cp /tekton/creds-secrets/tekton-container-registry-auth/.dockerconfigjson /kaniko/.docker/config.json
-        /kaniko/executor $KANIKO_FLAGS --build-arg=build_configuration=Debug --cache=true --cache-ttl=72h --context=/workspace/source --dockerfile=${DOCKERFILE_PATH} --destination=$DOCKER_REGISTRY/$DOCKER_REGISTRY_ORG/$APP_NAME:${NUGET_VERSION}-debug
+        /kaniko/executor $KANIKO_FLAGS --build-arg build_configuration=Debug --cache=true --cache-ttl=72h --context=/workspace/source --dockerfile=${DOCKERFILE_PATH} --destination=$DOCKER_REGISTRY/$DOCKER_REGISTRY_ORG/$APP_NAME:${NUGET_VERSION}-debug
     - name: github-tag-prerelease
       image: chrissena/gh:1.3.0
       env:
