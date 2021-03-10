@@ -31,13 +31,16 @@ spec:
         echo "KANIKO FLAGS: ${KANIKO_FLAGS}"
         SUFFIX=".Web"
         DOCKERFILE_PATH=/workspace/source/${PROJECT_NAME}/Dockerfile
+        TARGET="--target=build"
         if [ "${PROJECT_NAME}" != "${PROJECT_NAME%$SUFFIX}" ]
         then
           DOCKERFILE_PATH=/workspace/source/Dockerfile
+          TARGET=""
         fi
         echo $DOCKERFILE_PATH
+        echo $TARGET
         cp /tekton/creds-secrets/tekton-container-registry-auth/.dockerconfigjson /kaniko/.docker/config.json
-        /kaniko/executor $KANIKO_FLAGS --build-arg build_configuration=Debug --target=build --cache=true --cache-ttl=72h --context=/workspace/source --dockerfile=${DOCKERFILE_PATH} --destination=$DOCKER_REGISTRY/$DOCKER_REGISTRY_ORG/$APP_NAME:${NUGET_VERSION}-debug
+        /kaniko/executor $KANIKO_FLAGS --build-arg build_configuration=Debug ${TARGET} --cache=true --cache-ttl=72h --context=/workspace/source --dockerfile=${DOCKERFILE_PATH} --destination=$DOCKER_REGISTRY/$DOCKER_REGISTRY_ORG/$APP_NAME:${NUGET_VERSION}-debug
     - name: github-tag-prerelease
       image: chrissena/gh:1.3.0
       env:
@@ -128,7 +131,6 @@ spec:
         AUTH_URL=$(cat /workspace/source/auth-uri)
         echo adding url ${AUTH_URL} to IdentityServer CORS, redirect and logout uris for SyRF client.
         dotnet /app/IdentityClientUpdater.dll "${AUTH_URL}" "${AUTH_URL}/auth" "${AUTH_URL}/assets/callbacks/silent-refresh.html" "${AUTH_URL}/assets/callbacks/silentcallback.html"
-
     - name: show-changes
       image: gcr.io/jenkinsxio/builder-go:2.1.142-761
       script: |
