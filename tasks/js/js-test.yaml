@@ -1,0 +1,43 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: js-test
+spec:
+  stepTemplate:
+    name: ""
+    resources:
+      requests:
+        cpu: 600m
+        memory: 512Mi
+    volumeMounts:
+    - mountPath: /home/jenkins
+      name: workspace-volume
+    - mountPath: /etc/podinfo
+      name: podinfo
+      readOnly: true
+    workingDir: /workspace/source
+  steps:
+  - name: build-npm-install
+    image: node:14-slim
+    resources: {}
+    script: |
+      #!/bin/sh
+      npm install
+  - name: build-npm-test
+    image: node:14-slim
+    resources: 
+      requests:
+        cpu: "1"
+        memory: 1Gi
+    script: |
+      #!/bin/sh
+      CI=true DISPLAY=:99 npm test
+  volumes:
+  - emptyDir: {}
+    name: workspace-volume
+  - downwardAPI:
+      items:
+      - fieldRef:
+          fieldPath: metadata.labels
+        path: labels
+    name: podinfo

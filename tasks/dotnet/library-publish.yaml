@@ -1,0 +1,153 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: library-publish
+spec:
+  stepTemplate:
+    name: ""
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+    volumeMounts:
+      - mountPath: /home/jenkins
+        name: workspace-volume
+      - mountPath: /etc/podinfo
+        name: podinfo
+        readOnly: true
+    workingDir: /workspace/source
+  steps:
+    - name: dotnet-restore
+      image: gcr.io/jenkinsxio/builder-dotnet:2.1.150-771
+      env:
+        - name: NEXUS_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: nexus-credentials
+              key: username
+        - name: NEXUS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: nexus-credentials
+              key: password
+      script: |
+        if [ $(cat /workspace/.skip) = "skip" ]
+        then
+          echo "skipping step"
+          exit 0
+        fi
+        source .jx/variables.sh
+        envsubst < nuget.config.template > nuget.config 
+        dotnet restore "${PROJECT_NAME}/${PROJECT_NAME}.csproj"
+    - name: dotnet-pack
+      image: gcr.io/jenkinsxio/builder-dotnet:2.1.150-771
+      script: |
+        if [ $(cat /workspace/.skip) = "skip" ]
+        then
+          echo "skipping step"
+          exit 0
+        fi
+        source .jx/variables.sh
+        mkdir -p ../bin
+        CONFIG=$([ $JOB_TYPE = "presubmit" ] && echo Debug || echo Release)
+        CURRENT_SHA=$(git rev-parse HEAD)
+        NUGET_DESCRIPTION=$(
+          [ $JOB_TYPE = "presubmit" ] &&
+            echo "PR build: https://github.com/${REPO_OWNER}/${REPO_NAME}/pull/${PULL_NUMBER} Commit: ${CURRENT_SHA}" ||
+            echo "Release build: https://github.com/${REPO_OWNER}/${REPO_NAME}/commit/${CURRENT_SHA}"
+        )
+        dotnet pack ${PROJECT_NAME}/${PROJECT_NAME}.csproj -c ${CONFIG} -p:PackageVersion="${NUGET_VERSION}" -p:SymbolPackageFormat=snupkg -p:description="${NUGET_DESCRIPTION}" --include-symbols --output ../bin
+    - name: push-to-nexus
+      image: gcr.io/jenkinsxio/builder-dotnet:2.1.150-771
+      env:
+        - name: NEXUS_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: nexus-credentials
+              key: api-key
+      script: |
+        if [ $(cat /workspace/.skip) = "skip" ]
+        then
+          echo "skipping step"
+          exit 0
+        fi
+        source .jx/variables.sh
+        dotnet nuget push ../bin/*.nupkg -k ${NEXUS_API_KEY} -s https://nexus-jx.camarades.net/repository/nuget-hosted
+    - name: github-tag-release
+      image: chrissena/gh:1.3.0
+      env:
+        - name: GITHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: jx-pipeline-git-github-github
+              key: password
+      script: |
+        if [ $(cat /workspace/.skip) = "skip" ]
+        then
+          echo "skipping step"
+          exit 0
+        fi
+        source .jx/variables.sh
+        nupkg=(../bin/*.nupkg)
+        snupkg=(../bin/*.snupkg)
+        CURRENT_SHA=$(git rev-parse HEAD)
+        APPEND="false"
+        PAUSE=$(( ( RANDOM % 10 ) ))
+        echo sleeping for $PAUSE seconds...
+        sleep $PAUSE
+        MATCHED_SHA=$(git ls-remote --tags origin | grep -Po -m 1 $CURRENT_SHA || echo false)
+        if [ $MATCHED_SHA  = "false" ]
+        then
+          TAG_PRESENT="false"
+        elif [ $MATCHED_SHA  = $CURRENT_SHA ]
+        then
+          TAG_PRESENT="true"
+        else
+          echo "Something went wrong. Stopping..."
+          exit 1
+        fi
+        (
+          [ $JOB_TYPE = "presubmit" ] &&
+          ( ([ $TAG_PRESENT = "false" ]) && gh release create v${NUGET_VERSION} -t "${PROJECT_NAME} v${NUGET_VERSION}" -p --target $CURRENT_SHA -F CHANGELOG.md -R ${REPO_URL} "${nupkg}#${PROJECT_NAME} v${NUGET_VERSION} NuGet Package" "${snupkg}#${PROJECT_NAME} v${NUGET_VERSION} NuGet Package Symbols")
+        )  || 
+        (
+          [ $JOB_TYPE = "postsubmit" ] &&
+          (([ $TAG_PRESENT = "false" ]) && gh release create v${NUGET_VERSION} -t "${PROJECT_NAME} v${NUGET_VERSION}" --target $CURRENT_SHA -F CHANGELOG.md -R ${REPO_URL} "${nupkg}#${PROJECT_NAME} v${NUGET_VERSION} NuGet Package" "${snupkg}#${PROJECT_NAME} v${NUGET_VERSION} NuGet Package Symbols")
+        ) || 
+        APPEND="true"
+
+        if [ $APPEND = "true" ]
+        then
+          API_URL=https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/tags/v${NUGET_VERSION}
+          RELEASE_JSON=$(curl -H "Authorization: token ${GITHUB_TOKEN}" -H "Accept: application/vnd.github.v3+json" ${API_URL})
+          UPLOAD_ASSET_URL=$(echo $RELEASE_JSON | jq -r .upload_url)
+          UPLOAD_URL="${UPLOAD_ASSET_URL::-13}"
+          RELEASE_URL=$(echo $RELEASE_JSON | jq -r .url)
+          OLD_NAME=$(echo $RELEASE_JSON | jq -r .name)
+          name="${PROJECT_NAME}, ${OLD_NAME}"
+          curl \
+            -X PATCH \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: token ${GITHUB_TOKEN}"\
+            ${RELEASE_URL} \
+            -d "{\"name\":\"$name\"}"
+          curl --data-binary "@${nupkg}"\
+          -H "Accept: application/vnd.github.v3+json" \
+          -H "Content-type: application/vnd.microsoft.portable-executable"\
+          -H "Authorization: token ${GITHUB_TOKEN}"\
+          "${UPLOAD_URL}?name=$(basename $nupkg)&label=${PROJECT_NAME}+v${NUGET_VERSION}+NuGet+Package"
+          curl --data-binary "@${snupkg}"\
+          -H "Accept: application/vnd.github.v3+json" \
+          -H "Content-type: application/vnd.microsoft.portable-executable"\
+          -H "Authorization: token ${GITHUB_TOKEN}"\
+          "${UPLOAD_URL}?name=$(basename $snupkg)&label=${PROJECT_NAME}+v${NUGET_VERSION}+NuGet+Package+Symbols"
+        fi
+  volumes:
+    - emptyDir: {}
+      name: workspace-volume
+    - downwardAPI:
+        items:
+          - fieldRef:
+              fieldPath: metadata.labels
+            path: labels
+      name: podinfo
