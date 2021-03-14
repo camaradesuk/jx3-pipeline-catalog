@@ -121,6 +121,7 @@ spec:
           ([[ ${JOB_NAME} == *"messages-nuget-push"* ]] && echo messagesProject) ||
           ([[ ${JOB_NAME} == *"data-nuget-push"* ]] && echo dataProject) ||
           ([[ ${JOB_NAME} == *"js-deploy"* ]] && echo js) ||
+          ([[ ${JOB_NAME} == *"js-test"* ]] && echo js) ||
           ([[ ${JOB_NAME} == *"endpoint-deploy"* ]] && echo endpointProject) ||
           ([[ ${JOB_NAME} == *"lambda-deploy"* ]] && echo lambdaProject)
         )
