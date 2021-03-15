@@ -106,12 +106,12 @@ spec:
         source .jx/variables.sh
         git clone https://github.com/camaradesuk/jxc /tmp/jx
         cp -r /tmp/jx/local/ preview/local
-        PREVIEW_NAMESPACE_NAME="jx-${REPO_OWNER}-${REPO_NAME}-pr-${PULL_NUMBER}"
+        export PREVIEW_NAMESPACE_NAME="jx-${REPO_NAME}-pr${PULL_NUMBER}"
         echo "adding virtualhost to rabbitmq for preview namespace ${PREVIEW_NAMESPACE_NAME}"
         curl -u "rabbit:${RABBITMQ_PASSWORD}" -X PUT "http://rabbitmq.rabbitmq.svc.cluster.local:15672/api/vhosts/${PREVIEW_NAMESPACE_NAME}"
         kubectl delete namespace "${PREVIEW_NAMESPACE_NAME}" || echo "namespace ${PREVIEW_NAMESPACE_NAME} not found so not deleted"
         jx preview create
-        echo "syrf-web detected so saving url as https://syrf-${PREVIEW_NAMESPACE_NAME}.camarades.net"
+        echo "saving url as https://syrf-${PREVIEW_NAMESPACE_NAME}.camarades.net"
         echo "https://syrf-${PREVIEW_NAMESPACE_NAME}.camarades.net" > /workspace/source/auth-uri
     - name: update-auth-client-uris
       image: chrissena/identity-client-updater:1.4
