@@ -39,6 +39,8 @@ spec:
         git config --global credential.helper store
         mkdir -p source
         cd source
+        echo sleeping for 5 mins...
+        sleep 1500
         git init
         git remote add origin ${REPO_URL}
         git config --add remote.origin.fetch "+refs/pull/*/head:refs/remotes/pullrequest/*"
