@@ -18,7 +18,7 @@ spec:
     workingDir: /workspace/source
   steps:
     - name: nuget-config-subst
-      image: gcr.io/jenkinsxio/builder-dotnet:2.1.150-771
+      image: chrissena/dotnet-5.0-builder:1.0
       env:
         - name: NEXUS_USERNAME
           valueFrom:

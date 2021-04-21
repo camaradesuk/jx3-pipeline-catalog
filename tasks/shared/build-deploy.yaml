@@ -5,6 +5,7 @@ metadata:
 spec:
   stepTemplate:
     name: ""
+    image: uses:jenkins-x/jx3-pipeline-catalog/tasks/csharp/release.yaml@versionStream
     volumeMounts:
       - mountPath: /home/jenkins
         name: workspace-volume
@@ -88,7 +89,7 @@ spec:
             -d "{\"name\":\"$name\"}"
         fi
     - name: promote-jx-preview
-      image: gcr.io/jenkinsxio/jx-preview:0.0.143
+      image: uses:jenkins-x/jx3-pipeline-catalog/tasks/git-clone/git-clone-pr.yaml@versionStream
       resources: {}
       env:
         - name: RABBITMQ_PASSWORD
@@ -137,7 +138,6 @@ spec:
         echo "changes since previous commit"
         git diff HEAD~1 --name-only
     - name: build-container-build
-      image: gcr.io/kaniko-project/executor:debug-v1.3.0
       resources:
         requests:
           cpu: 400m
@@ -162,7 +162,7 @@ spec:
         cp /tekton/creds-secrets/tekton-container-registry-auth/.dockerconfigjson /kaniko/.docker/config.json
         /kaniko/executor $KANIKO_FLAGS --cache=true --cache-ttl=72h --context=/workspace/source --dockerfile=${DOCKERFILE_PATH} --destination=$DOCKER_REGISTRY/$DOCKER_REGISTRY_ORG/$APP_NAME:${NUGET_VERSION}
     - name: update-chart-values
-      image: gcr.io/jenkinsxio/builder-go:2.1.142-761
+      image: centos:7
       script: |
         #!/bin/bash
         if [ $(cat /workspace/.skip) = "skip" ]
@@ -224,8 +224,7 @@ spec:
             ${RELEASE_URL} \
             -d "{\"name\":\"$name\"}"
         fi
-    - name: push-helm-release
-      image: gcr.io/jenkinsxio/jx-boot:3.1.169
+    - name: promote-helm-release
       resources: {}
       script: |
         #!/usr/bin/env sh
@@ -237,7 +236,6 @@ spec:
         source .jx/variables.sh
         jx gitops helm release
     - name: promote-jx-promote
-      image: gcr.io/jenkinsxio/jx-promote:0.0.179
       resources: {}
       script: |
         #!/usr/bin/env sh
