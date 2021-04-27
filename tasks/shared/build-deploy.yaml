@@ -89,7 +89,7 @@ spec:
             -d "{\"name\":\"$name\"}"
         fi
     - name: promote-jx-preview
-      image: uses:jenkins-x/jx3-pipeline-catalog/tasks/csharp/release.yaml@versionStream
+      image: uses:jenkins-x/jx3-pipeline-catalog/tasks/csharp/pullrequest.yaml@versionStream
       resources: {}
       env:
         - name: RABBITMQ_PASSWORD
