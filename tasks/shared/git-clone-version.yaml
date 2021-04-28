@@ -142,8 +142,8 @@ spec:
         echo "setting PROJECT_NAME to ${PROJECT_NAME}"
         if [[ $PROJECT_NAME == "null" || $PROJECT_NAME == "" ]]
         then
-          echo "PROJECT_NAME not found. Failing pipeline..."
-          exit 1
+          unset PROJECT_NAME
+          exit 0
         fi
         echo $PROJECT_NAME > ../project_name
         echo "export PROJECT_NAME='$PROJECT_NAME'" >> .jx/variables.sh
