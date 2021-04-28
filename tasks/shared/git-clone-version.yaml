@@ -51,7 +51,7 @@ spec:
           echo checked out origin/${PULL_PULL_REF} as ${LOCAL_PR_BRANCH}
         elif [ $JOB_TYPE = "postsubmit" ]
         then
-          git checkout -b master origin/master
+          git checkout -b master origin/master || git checkout -b main origin/main
           echo checked
         else
           echo pipeline is neither pre or postsubmit
