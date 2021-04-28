@@ -72,7 +72,7 @@ spec:
         fi
         (
           [ $TAG_PRESENT = "false" ] &&
-          gh release create v${NUGET_VERSION} -t "${PROJECT_NAME} v${NUGET_VERSION}" -p --target $CURRENT_SHA -F CHANGELOG.md -R ${REPO_URL}
+          gh release create v${NUGET_VERSION} -t "${PROJECT_NAME-$APP_NAME} v${NUGET_VERSION}" -p --target $CURRENT_SHA -F CHANGELOG.md -R ${REPO_URL}
         ) || APPEND="true"
         if [ $APPEND = "true" ]
         then
@@ -80,7 +80,7 @@ spec:
           RELEASE_JSON=$(curl -H "Authorization: token ${GITHUB_TOKEN}" -H "Accept: application/vnd.github.v3+json" ${API_URL})
           RELEASE_URL=$(echo $RELEASE_JSON | jq -r .url)
           OLD_NAME=$(echo $RELEASE_JSON | jq -r .name)
-          name="${PROJECT_NAME}, ${OLD_NAME}"
+          name="${PROJECT_NAME-$APP_NAME}, ${OLD_NAME}"
           curl \
             -X PATCH \
             -H "Accept: application/vnd.github.v3+json" \
@@ -208,7 +208,7 @@ spec:
         fi
         (
           [ $TAG_PRESENT = "false" ] &&
-          gh release create v${NUGET_VERSION} -t "${PROJECT_NAME} v${NUGET_VERSION}" --target $CURRENT_SHA -F CHANGELOG.md -R ${REPO_URL}
+          gh release create v${NUGET_VERSION} -t "${PROJECT_NAME-$APP_NAME} v${NUGET_VERSION}" --target $CURRENT_SHA -F CHANGELOG.md -R ${REPO_URL}
         ) || APPEND="true"
         if [ $APPEND = "true" ]
         then
@@ -216,7 +216,7 @@ spec:
           RELEASE_JSON=$(curl -H "Authorization: token ${GITHUB_TOKEN}" -H "Accept: application/vnd.github.v3+json" ${API_URL})
           RELEASE_URL=$(echo $RELEASE_JSON | jq -r .url)
           OLD_NAME=$(echo $RELEASE_JSON | jq -r .name)
-          name="${PROJECT_NAME}, ${OLD_NAME}"
+          name="${PROJECT_NAME-$APP_NAME}, ${OLD_NAME}"
           curl \
             -X PATCH \
             -H "Accept: application/vnd.github.v3+json" \
