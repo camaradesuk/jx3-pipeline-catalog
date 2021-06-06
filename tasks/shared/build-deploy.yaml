@@ -16,7 +16,28 @@ spec:
     env:
       - name: HOME
         value: /tekton/home
-  steps:  
+  steps:
+    - name: build-create-sentry-release
+      image: getsentry/sentry-cli
+      env:
+        - name: SENTRY_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: sentry
+              key: auth-token
+        - name: SENTRY_ORG
+          valueFrom:
+            secretKeyRef:
+              name: sentry
+              key: organisation-slug
+      script: |
+        echo "sleeping for 60 mins..."
+        sleep 3600
+        echo "Creating a release with Sentry and associating commits"
+        echo "# Create a release"
+        echo " --env SENTRY_AUTH_TOKEN=${env:SENTRY_AUTH_TOKEN} --env SENTRY_ORG=${env:SENTRY_ORG} -v ${pwd}:/work getsentry/sentry-cli releases new -p syrf-angular $VERSION"
+        echo "# Associate commits with the release"
+        echo "docker run --rm --env SENTRY_AUTH_TOKEN=${env:SENTRY_AUTH_TOKEN} --env SENTRY_ORG=${env:SENTRY_ORG} -v ${pwd}:/work getsentry/sentry-cli releases set-commits --auto $VERSION"
     - name: build-container-build-debug
       image: gcr.io/kaniko-project/executor:debug-v1.3.0
       resources:
