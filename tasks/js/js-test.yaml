@@ -26,6 +26,8 @@ spec:
     script: |
       #!/bin/sh
       npm install
+      echo "starting ngcc..."
+      ./node_modules/.bin/ngcc
   - name: build-npm-test
     image: node:14-slim
     resources: 
@@ -35,6 +37,15 @@ spec:
     script: |
       #!/bin/sh
       CI=true DISPLAY=:99 npm test
+  - name: build-npm-build
+    image: node:14-slim
+    resources: 
+      requests:
+        cpu: "1"
+        memory: 1Gi
+    script: |
+      #!/bin/sh
+      CI=true DISPLAY=:99 npm run build
   volumes:
   - emptyDir: {}
     name: workspace-volume
