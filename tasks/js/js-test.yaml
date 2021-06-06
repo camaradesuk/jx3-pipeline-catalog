@@ -16,6 +16,9 @@ spec:
       name: podinfo
       readOnly: true
     workingDir: /workspace/source
+    env:
+      - name: HOME
+        value: /tekton/home
   steps:
   - name: build-npm-install
     image: node:14-slim

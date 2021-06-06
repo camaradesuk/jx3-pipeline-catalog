@@ -16,6 +16,9 @@ spec:
         name: podinfo
         readOnly: true
     workingDir: /workspace/source
+    env:
+      - name: HOME
+        value: /tekton/home
   steps:
     - name: git-clone
       image: gcr.io/jenkinsxio/builder-jx:2.1.142-761

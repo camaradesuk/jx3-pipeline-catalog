@@ -16,6 +16,9 @@ spec:
         name: podinfo
         readOnly: true
     workingDir: /workspace/source
+    env:
+      - name: HOME
+        value: /tekton/home
   steps:
     - name: nuget-config-subst
       image: chrissena/dotnet-5.0-builder:1.0

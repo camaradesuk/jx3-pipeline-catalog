@@ -13,6 +13,9 @@ spec:
         name: podinfo
         readOnly: true
     workingDir: /workspace/source
+    env:
+      - name: HOME
+        value: /tekton/home
   steps:  
     - name: build-container-build-debug
       image: gcr.io/kaniko-project/executor:debug-v1.3.0
