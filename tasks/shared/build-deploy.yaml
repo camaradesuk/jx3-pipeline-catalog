@@ -31,13 +31,14 @@ spec:
               name: sentry
               key: organisation-slug
       script: |
-        echo "sleeping for 60 mins..."
-        sleep 3600
-        echo "Creating a release with Sentry and associating commits"
-        echo "# Create a release"
-        echo " --env SENTRY_AUTH_TOKEN=${env:SENTRY_AUTH_TOKEN} --env SENTRY_ORG=${env:SENTRY_ORG} -v ${pwd}:/work getsentry/sentry-cli releases new -p syrf-angular $VERSION"
+        INFORMATIONAL_VERSION=$(cat ../INFORMATIONAL_VERSION)
+        SEMVER=$(cat ../SEMVER)
+        echo $INFORMATIONAL_VERSION
+        RELEASE_NAME=$REPO_NAME@$SEMVER
+        echo "Creating a release for $RELEASE_NAME ..."
+        sentry-cli releases new -p $REPO_NAME $RELEASE_NAME 
         echo "# Associate commits with the release"
-        echo "docker run --rm --env SENTRY_AUTH_TOKEN=${env:SENTRY_AUTH_TOKEN} --env SENTRY_ORG=${env:SENTRY_ORG} -v ${pwd}:/work getsentry/sentry-cli releases set-commits --auto $VERSION"
+        sentry-cli releases set-commits --auto $RELEASE_NAME
     - name: build-container-build-debug
       image: gcr.io/kaniko-project/executor:debug-v1.3.0
       resources:

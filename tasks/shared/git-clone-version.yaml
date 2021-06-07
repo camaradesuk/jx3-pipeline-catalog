@@ -116,6 +116,9 @@ spec:
         SEMVER=$(cat ../version.json | jq -r .SemVer)
         FULLSEMVER=$(cat ../version.json | jq -r .NuGetVersionV2)
         INFORMATIONAL_VERSION=$(cat ../version.json | jq -r .InformationalVersion)
+        echo $INFORMATIONAL_VERSION > ../INFORMATIONAL_VERSION
+        echo $FULLSEMVER > ../FULL_SEMVER
+        echo $SEMVER > ../SEMVER
         echo "export VERSION='$FULLSEMVER'" >> .jx/variables.sh
         echo "export NUGET_VERSION='$FULLSEMVER'" >> .jx/variables.sh
         echo "export INFORMATIONAL_VERSION='$INFORMATIONAL_VERSION'" >> .jx/variables.sh

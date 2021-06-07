@@ -1,0 +1,77 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: js-build
+spec:
+  stepTemplate:
+    name: ""
+    resources:
+      requests:
+        cpu: 600m
+        memory: 512Mi
+    volumeMounts:
+    - mountPath: /home/jenkins
+      name: workspace-volume
+    - mountPath: /etc/podinfo
+      name: podinfo
+      readOnly: true
+    workingDir: /workspace/source
+    env:
+      - name: HOME
+        value: /tekton/home
+  steps:
+    - name: build-npm-install
+      image: node:14-slim
+      resources: {}
+      script: |
+        #!/bin/sh
+        npm install
+        echo "starting ngcc..."
+        ./node_modules/.bin/ngcc
+    - name: build-npm-test
+      image: node:14-slim
+      resources: 
+        requests:
+          cpu: "1"
+          memory: 1Gi
+      script: |
+        #!/bin/sh
+        CI=true DISPLAY=:99 npm test
+    - name: build-npm-build
+      image: node:14-slim
+      resources: 
+        requests:
+          cpu: "1"
+          memory: 1Gi
+      script: |
+        #!/bin/sh
+        CI=true DISPLAY=:99 npm run build
+    - name: build-sentry-sourcemaps
+      image: getsentry/sentry-cli
+      env:
+        - name: SENTRY_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: sentry
+              key: auth-token
+        - name: SENTRY_ORG
+          valueFrom:
+            secretKeyRef:
+              name: sentry
+              key: organisation-slug
+      script: |
+        INFORMATIONAL_VERSION=$(cat ../INFORMATIONAL_VERSION)
+        SEMVER=$(cat ../SEMVER)
+        echo $INFORMATIONAL_VERSION
+        RELEASE_NAME=$REPO_NAME@$SEMVER
+        echo "Sending sourcemaps for release $RELEASE_NAME ..."
+        sentry-cli releases files $RELEASE_NAME upload-sourcemaps /dist
+  volumes:
+  - emptyDir: {}
+    name: workspace-volume
+  - downwardAPI:
+      items:
+      - fieldRef:
+          fieldPath: metadata.labels
+        path: labels
+    name: podinfo
