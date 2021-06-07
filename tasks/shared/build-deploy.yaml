@@ -270,7 +270,7 @@ spec:
           exit 0
         fi
         source .jx/variables.sh
-        jx promote -b --all-auto --timeout 1h --no-poll
+        jx promote -b --all --timeout 1h --no-poll
   volumes:
   - emptyDir: {}
     name: workspace-volume
