@@ -31,7 +31,7 @@ spec:
     - name: build-npm-test
       image: node:14-slim
       resources: 
-        requests:
+        limits:
           cpu: "1"
           memory: 4Gi
       script: |
@@ -40,7 +40,7 @@ spec:
     - name: build-npm-build
       image: node:14-slim
       resources: 
-        requests:
+        limits:
           cpu: "1"
           memory: 4Gi
       script: |
