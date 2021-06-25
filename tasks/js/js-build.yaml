@@ -22,8 +22,11 @@ spec:
   steps:
     - name: build-npm-install
       image: node:14.16.1-slim
-
-      resources: {}
+      resources: 
+        requests:
+          cpu: "1"
+        limits:
+          memory: 5Gi
       script: |
         #!/bin/sh
         npm install
@@ -31,21 +34,21 @@ spec:
         ./node_modules/.bin/ngcc
     - name: build-npm-test
       image: node:14.16.1-slim
-
-      resources: 
-        limits:
+      resources:
+        requests:
           cpu: "1"
-          memory: 4Gi
+        limits:
+          memory: 5Gi
       script: |
         #!/bin/sh
         CI=true DISPLAY=:99 npm test
     - name: build-npm-build
       image: node:14.16.1-slim
-
-      resources: 
-        limits:
+      resources:
+        requests:
           cpu: "1"
-          memory: 4Gi
+        limits:
+          memory: 5Gi
       script: |
         #!/bin/sh
         CI=true DISPLAY=:99 npm run build
