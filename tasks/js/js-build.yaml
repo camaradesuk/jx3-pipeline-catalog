@@ -21,7 +21,8 @@ spec:
         value: /tekton/home
   steps:
     - name: build-npm-install
-      image: node:14-slim
+      image: node:14.16.1-slim
+
       resources: {}
       script: |
         #!/bin/sh
@@ -29,7 +30,8 @@ spec:
         echo "starting ngcc..."
         ./node_modules/.bin/ngcc
     - name: build-npm-test
-      image: node:14-slim
+      image: node:14.16.1-slim
+
       resources: 
         limits:
           cpu: "1"
@@ -38,7 +40,8 @@ spec:
         #!/bin/sh
         CI=true DISPLAY=:99 npm test
     - name: build-npm-build
-      image: node:14-slim
+      image: node:14.16.1-slim
+
       resources: 
         limits:
           cpu: "1"
