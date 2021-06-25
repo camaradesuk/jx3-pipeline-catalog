@@ -33,7 +33,7 @@ spec:
       resources: 
         requests:
           cpu: "1"
-          memory: 1Gi
+          memory: 4Gi
       script: |
         #!/bin/sh
         CI=true DISPLAY=:99 npm test
@@ -42,7 +42,7 @@ spec:
       resources: 
         requests:
           cpu: "1"
-          memory: 1Gi
+          memory: 4Gi
       script: |
         #!/bin/sh
         CI=true DISPLAY=:99 npm run build
