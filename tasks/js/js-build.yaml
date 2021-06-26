@@ -25,8 +25,9 @@ spec:
       resources: 
         requests:
           cpu: "1"
+          memory: 4Gi
         limits:
-          memory: 8Gi
+          memory: 5Gi
       script: |
         #!/bin/sh
         npm install
@@ -37,8 +38,9 @@ spec:
       resources:
         requests:
           cpu: "1"
+          memory: 4Gi
         limits:
-          memory: 8Gi
+          memory: 5Gi
       script: |
         #!/bin/sh
         CI=true DISPLAY=:99 npm test
@@ -47,8 +49,9 @@ spec:
       resources:
         requests:
           cpu: "1"
+          memory: 4Gi
         limits:
-          memory: 8Gi
+          memory: 5Gi
       script: |
         #!/bin/sh
         CI=true DISPLAY=:99 npm run build
