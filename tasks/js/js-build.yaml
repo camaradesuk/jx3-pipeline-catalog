@@ -27,7 +27,7 @@ spec:
           cpu: "1"
           memory: 8Gi
         limits:
-          memory: 8Gi
+          memory: 10Gi
       script: |
         #!/bin/sh
         npm install
@@ -40,7 +40,7 @@ spec:
           cpu: "1"
           memory: 8Gi
         limits:
-          memory: 8Gi
+          memory: 10Gi
       script: |
         #!/bin/sh
         CI=true DISPLAY=:99 npm test
@@ -51,7 +51,7 @@ spec:
           cpu: "1"
           memory: 8Gi
         limits:
-          memory: 8Gi
+          memory: 10Gi
       script: |
         #!/bin/sh
         CI=true DISPLAY=:99 npm run build
