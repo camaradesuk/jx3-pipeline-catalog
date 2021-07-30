@@ -164,7 +164,7 @@ spec:
         source .jx/variables.sh
         npm install -g auto-changelog
         PREVIOUS_TAG=$(git describe --tags  --abbrev=0 HEAD^ || echo)
-        PREVIOUS_RELEASE_TAG=$(git describe --tags  --abbrev=0 HEAD^  --match v[0-999].[0-999].[0-999] || echo)
+        PREVIOUS_RELEASE_TAG=$(git describe --tags  --abbrev=0 HEAD^  --match v[0-999]*.[0-999]*.[0-999]* || echo)
         git tag "v${NUGET_VERSION}" || echo "tag already in local clone"
         if [ $JOB_TYPE = "presubmit" ]
         then
