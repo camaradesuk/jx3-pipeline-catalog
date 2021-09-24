@@ -21,7 +21,7 @@ spec:
         value: /tekton/home
   steps:
     - name: git-clone
-      image: gcr.io/jenkinsxio/builder-jx:2.1.142-761
+      image: ghcr.io/jenkins-x/builder-jx:2.1.142-761
       env:
       - name: GITHUB_USERNAME
         valueFrom:
@@ -71,7 +71,7 @@ spec:
         fi
       workingDir: /workspace
     - name: git-setup
-      image: gcr.io/jenkinsxio/jx-cli:3.0.766
+      image: ghcr.io/jenkins-x/jx-cli:3.0.766
       script: |
         if [ $(cat /workspace/.skip) = "skip" ]
         then
@@ -91,7 +91,7 @@ spec:
         /tools/dotnet-gitversion /workspace/source >> ../version.json
         cat ../version.json
     - name: jx-variables
-      image: gcr.io/jenkinsxio/jx-cli:3.0.766
+      image: ghcr.io/jenkins-x/jx-cli:3.0.766
       script: |
         if [ $(cat /workspace/.skip) = "skip" ]
         then
@@ -106,7 +106,7 @@ spec:
         echo "export CURRENT_SHA='$CURRENT_SHA'" >> .jx/variables.sh
       resources: {}
     - name: extra-variables
-      image: gcr.io/jenkinsxio/builder-jx:2.1.142-761
+      image: ghcr.io/jenkins-x/builder-jx:2.1.142-761
       script: |
         if [ $(cat /workspace/.skip) = "skip" ]
         then
@@ -154,7 +154,7 @@ spec:
         echo $PROJECT_NAME > ../project_name
         echo "export PROJECT_NAME='$PROJECT_NAME'" >> .jx/variables.sh
     - name: generate-changelog-file
-      image: gcr.io/jenkinsxio/builder-nodejs
+      image: ghcr.io/jenkins-x/builder-nodejs
       script: |
         if [ $(cat /workspace/.skip) = "skip" ]
         then
