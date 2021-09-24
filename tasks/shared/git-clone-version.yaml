@@ -21,7 +21,7 @@ spec:
         value: /tekton/home
   steps:
     - name: git-clone
-      image: ghcr.io/jenkins-x/builder-jx:2.1.142-761
+      image: ghcr.io/jenkins-x/builder-jx:2.1.155-778-patch3
       env:
       - name: GITHUB_USERNAME
         valueFrom:
@@ -106,7 +106,7 @@ spec:
         echo "export CURRENT_SHA='$CURRENT_SHA'" >> .jx/variables.sh
       resources: {}
     - name: extra-variables
-      image: ghcr.io/jenkins-x/builder-jx:2.1.142-761
+      image: ghcr.io/jenkins-x/builder-jx:2.1.155-778-patch3
       script: |
         if [ $(cat /workspace/.skip) = "skip" ]
         then
