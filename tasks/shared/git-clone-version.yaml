@@ -71,7 +71,7 @@ spec:
         fi
       workingDir: /workspace
     - name: git-setup
-      image: ghcr.io/jenkins-x/jx-cli:3.0.766
+      image: ghcr.io/jenkins-x/jx-cli:3.1.353
       script: |
         if [ $(cat /workspace/.skip) = "skip" ]
         then
@@ -91,7 +91,7 @@ spec:
         /tools/dotnet-gitversion /workspace/source >> ../version.json
         cat ../version.json
     - name: jx-variables
-      image: ghcr.io/jenkins-x/jx-cli:3.0.766
+      image: ghcr.io/jenkins-x/jx-cli:3.1.353
       script: |
         if [ $(cat /workspace/.skip) = "skip" ]
         then
