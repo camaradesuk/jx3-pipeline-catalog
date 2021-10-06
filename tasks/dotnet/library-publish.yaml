@@ -21,7 +21,7 @@ spec:
         value: /tekton/home
   steps:
     - name: dotnet-restore
-      image: chrissena/dotnet-5.0-builder:1.0
+      image: chrissena/dotnet-5.0-builder:2.0
       env:
         - name: NEXUS_USERNAME
           valueFrom:
@@ -43,7 +43,7 @@ spec:
         envsubst < nuget.config.template > nuget.config 
         dotnet restore "${PROJECT_NAME}/${PROJECT_NAME}.csproj"
     - name: dotnet-pack
-      image: chrissena/dotnet-5.0-builder:1.0
+      image: chrissena/dotnet-5.0-builder:2.0
       script: |
         if [ $(cat /workspace/.skip) = "skip" ]
         then
@@ -61,7 +61,7 @@ spec:
         )
         dotnet pack ${PROJECT_NAME}/${PROJECT_NAME}.csproj -c ${CONFIG} -p:PackageVersion="${NUGET_VERSION}" -p:SymbolPackageFormat=snupkg -p:description="${NUGET_DESCRIPTION}" --include-symbols --output ../bin
     - name: push-to-nexus
-      image: chrissena/dotnet-5.0-builder:1.0
+      image: chrissena/dotnet-5.0-builder:2.0
       env:
         - name: NEXUS_API_KEY
           valueFrom:
