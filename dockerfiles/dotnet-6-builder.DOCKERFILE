@@ -10,6 +10,6 @@ ENV YQ_RELEASE_VERSION 2.4.1
 
 RUN rpm -Uvh https://packages.microsoft.com/config/rhel/7/packages-microsoft-prod.rpm \
     && yum -y update \
-    && yum -y install dotnet-sdk-5.0 \
+    && yum -y install dotnet-sdk-6.0 \
     && yum install -y gettext-devel \
     && yum clean all
