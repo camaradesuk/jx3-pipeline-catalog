@@ -21,7 +21,7 @@ spec:
         value: /tekton/home
   steps:
     - name: nuget-config-subst
-      image: chrissena/dotnet-7.0-builder:1.0
+      image: chrissena/dotnet-7-builder:1.0
       env:
         - name: NEXUS_USERNAME
           valueFrom:
