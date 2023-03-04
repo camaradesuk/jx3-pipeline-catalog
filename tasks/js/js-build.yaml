@@ -24,10 +24,10 @@ spec:
       image: node:14-slim
       resources: 
         requests:
-          cpu: "1"
-          memory: 8Gi
+          cpu: "600m"
+          memory: 4Gi
         limits:
-          memory: 10Gi
+          memory: 7Gi
       script: |
         #!/bin/sh
         npm install
@@ -37,10 +37,10 @@ spec:
       image: node:14-slim
       resources:
         requests:
-          cpu: "1"
-          memory: 8Gi
+          cpu: "600m"
+          memory: 4Gi
         limits:
-          memory: 10Gi
+          memory: 7Gi
       script: |
         #!/bin/sh
         CI=true DISPLAY=:99 npm test
@@ -48,10 +48,10 @@ spec:
       image: node:14-slim
       resources:
         requests:
-          cpu: "1"
-          memory: 8Gi
+          cpu: "600m"
+          memory: 4Gi
         limits:
-          memory: 10Gi
+          memory: 7Gi
       script: |
         #!/bin/sh
         CI=true DISPLAY=:99 npm run build
