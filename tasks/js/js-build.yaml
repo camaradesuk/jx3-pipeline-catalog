@@ -5,12 +5,6 @@ metadata:
 spec:
   stepTemplate:
     name: ""
-    resources:
-      requests:
-        cpu: 600m
-        memory: 800Mi
-      limits:
-        memory: 4Gi
     volumeMounts:
     - mountPath: /home/jenkins
       name: workspace-volume
@@ -23,6 +17,12 @@ spec:
         value: /tekton/home
   steps:
     - name: build-npm-install
+      resources:
+        requests:
+          cpu: 1
+          memory: 2Gi
+        limits:
+          memory: 8Gi
       image: node:14-slim
       script: |
         #!/bin/sh
@@ -35,6 +35,12 @@ spec:
         #!/bin/sh
         CI=true DISPLAY=:99 npm test
     - name: build-npm-build
+      resources:
+        requests:
+          cpu: 0.6
+          memory: 2Gi
+        limits:
+          memory: 4Gi
       image: node:14-slim
       script: |
         #!/bin/sh
