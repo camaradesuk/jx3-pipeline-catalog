@@ -169,6 +169,7 @@ spec:
         echo "changes since previous commit"
         git diff HEAD~1 --name-only
     - name: build-container-build
+      image: gcr.io/kaniko-project/executor:debug-v1.3.0
       resources:
         requests:
           cpu: 400m
