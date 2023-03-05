@@ -5,10 +5,6 @@ metadata:
 spec:
   stepTemplate:
     name: ""
-    resources:
-      requests:
-        cpu: 200m
-        memory: 256Mi
     volumeMounts:
       - mountPath: /home/jenkins
         name: workspace-volume
