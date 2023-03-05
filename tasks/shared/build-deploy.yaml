@@ -38,7 +38,13 @@ spec:
         echo "Creating a release for $RELEASE_NAME ..."
         sentry-cli releases new -p $REPO_NAME $RELEASE_NAME 
         echo "# Associate commits with the release"
-        sentry-cli releases set-commits --auto $RELEASE_NAME
+        if sentry-cli releases set-commits --auto $RELEASE_NAME
+        then
+          echo "successfully set commits"
+        else
+          echo "sleeping for 10 minutes to debug"
+          sleep 600
+        fi
     - name: build-container-build-debug
       image: gcr.io/kaniko-project/executor:debug-v1.3.0
       resources:
