@@ -31,6 +31,7 @@ spec:
               name: sentry
               key: organisation-slug
       script: |
+        chown root:root ./
         INFORMATIONAL_VERSION=$(cat ../INFORMATIONAL_VERSION)
         SEMVER=$(cat ../SEMVER)
         echo $INFORMATIONAL_VERSION
