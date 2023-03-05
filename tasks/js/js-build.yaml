@@ -8,7 +8,9 @@ spec:
     resources:
       requests:
         cpu: 600m
-        memory: 512Mi
+        memory: 800Mi
+      limits:
+        memory: 4Gi
     volumeMounts:
     - mountPath: /home/jenkins
       name: workspace-volume
@@ -22,12 +24,6 @@ spec:
   steps:
     - name: build-npm-install
       image: node:14-slim
-      resources: 
-        requests:
-          cpu: "600m"
-          memory: 1Gi
-        limits:
-          memory: 4Gi
       script: |
         #!/bin/sh
         npm install
@@ -35,23 +31,11 @@ spec:
         ./node_modules/.bin/ngcc
     - name: build-npm-test
       image: node:14-slim
-      resources:
-        requests:
-          cpu: "600m"
-          memory: 1Gi
-        limits:
-          memory: 4Gi
       script: |
         #!/bin/sh
         CI=true DISPLAY=:99 npm test
     - name: build-npm-build
       image: node:14-slim
-      resources:
-        requests:
-          cpu: "600m"
-          memory: 1Gi
-        limits:
-          memory: 4Gi
       script: |
         #!/bin/sh
         CI=true DISPLAY=:99 npm run build
