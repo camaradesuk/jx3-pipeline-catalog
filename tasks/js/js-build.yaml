@@ -20,7 +20,7 @@ spec:
       image: node:18-slim
       script: |
         #!/bin/sh
-        npm install
+        npm install --force
         echo "starting ngcc..."
         ./node_modules/.bin/ngcc
     - name: build-npm-test
