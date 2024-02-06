@@ -4,7 +4,7 @@ metadata:
   name: release-build-deploy-container
 spec:
   stepTemplate:
-    name: ""
+    name: ''
     image: uses:jenkins-x/jx3-pipeline-catalog/tasks/csharp/release.yaml@versionStream
     volumeMounts:
       - mountPath: /home/jenkins
@@ -37,7 +37,7 @@ spec:
         echo $INFORMATIONAL_VERSION
         RELEASE_NAME=$REPO_NAME@$SEMVER
         echo "Creating a release for $RELEASE_NAME ..."
-        sentry-cli releases new -p $REPO_NAME $RELEASE_NAME 
+        sentry-cli releases new -p $REPO_NAME $RELEASE_NAME
         echo "# Associate commits with the release"
         if sentry-cli releases set-commits --auto $RELEASE_NAME
         then
@@ -73,7 +73,7 @@ spec:
         echo $DOCKERFILE_PATH
         echo $TARGET
         cp /tekton/creds-secrets/tekton-container-registry-auth/.dockerconfigjson /kaniko/.docker/config.json
-        /kaniko/executor $KANIKO_FLAGS --build-arg build_configuration=Debug ${TARGET} --cache=true --cache-ttl=72h --context=/workspace/source --dockerfile=${DOCKERFILE_PATH} --destination=$DOCKER_REGISTRY/$DOCKER_REGISTRY_ORG/$APP_NAME:${NUGET_VERSION}-debug
+        /kaniko/executor $KANIKO_FLAGS --build-arg build_configuration=Debug --build-arg nuget_version=${NUGET_VERSION} ${TARGET} --cache=true --cache-ttl=72h --context=/workspace/source --dockerfile=${DOCKERFILE_PATH} --destination=$DOCKER_REGISTRY/$DOCKER_REGISTRY_ORG/$APP_NAME:${NUGET_VERSION}-debug
     - name: github-tag-prerelease
       image: chrissena/gh:1.3.0
       env:
@@ -193,7 +193,7 @@ spec:
         fi
         echo $DOCKERFILE_PATH
         cp /tekton/creds-secrets/tekton-container-registry-auth/.dockerconfigjson /kaniko/.docker/config.json
-        /kaniko/executor $KANIKO_FLAGS --cache=true --cache-ttl=72h --context=/workspace/source --dockerfile=${DOCKERFILE_PATH} --destination=$DOCKER_REGISTRY/$DOCKER_REGISTRY_ORG/$APP_NAME:${NUGET_VERSION}
+        /kaniko/executor $KANIKO_FLAGS --cache=true --cache-ttl=72h --build-arg nuget_version=${NUGET_VERSION} --context=/workspace/source --dockerfile=${DOCKERFILE_PATH} --destination=$DOCKER_REGISTRY/$DOCKER_REGISTRY_ORG/$APP_NAME:${NUGET_VERSION}
     - name: update-chart-values
       image: centos:7
       script: |
@@ -280,11 +280,11 @@ spec:
         source .jx/variables.sh
         jx promote -b --all --timeout 1h --no-poll
   volumes:
-  - emptyDir: {}
-    name: workspace-volume
-  - downwardAPI:
-      items:
-      - fieldRef:
-          fieldPath: metadata.labels
-        path: labels
-    name: podinfo
+    - emptyDir: {}
+      name: workspace-volume
+    - downwardAPI:
+        items:
+          - fieldRef:
+              fieldPath: metadata.labels
+            path: labels
+      name: podinfo
