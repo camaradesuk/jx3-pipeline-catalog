@@ -39,6 +39,8 @@ spec:
           echo "skipping step"
           exit 0
         fi
+        echo sleeping for 300 seconds...
+        sleep 300
         source .jx/variables.sh
         envsubst < nuget.config.template > nuget.config 
         dotnet restore "${PROJECT_NAME}/${PROJECT_NAME}.csproj"
