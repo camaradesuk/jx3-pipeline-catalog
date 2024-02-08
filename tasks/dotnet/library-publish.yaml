@@ -34,19 +34,19 @@ spec:
               name: nexus-credentials
               key: password
       script: |
+        #!/bin/bash
         if [ $(cat /workspace/.skip) = "skip" ]
         then
           echo "skipping step"
           exit 0
         fi
-        echo sleeping for 300 seconds...
-        sleep 300
         source .jx/variables.sh
         envsubst < nuget.config.template > nuget.config 
         dotnet restore "${PROJECT_NAME}/${PROJECT_NAME}.csproj"
     - name: dotnet-pack
       image: chrissena/dotnet-8-builder:1.0
       script: |
+        #!/bin/bash
         if [ $(cat /workspace/.skip) = "skip" ]
         then
           echo "skipping step"
@@ -71,6 +71,7 @@ spec:
               name: nexus-credentials
               key: api-key
       script: |
+        #!/bin/bash
         if [ $(cat /workspace/.skip) = "skip" ]
         then
           echo "skipping step"
