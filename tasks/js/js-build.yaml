@@ -59,7 +59,7 @@ spec:
         RELEASE_NAME=$REPO_NAME@$SEMVER
         export SENTRY_PROJECT=$REPO_NAME
         echo "Sending sourcemaps for release $RELEASE_NAME ..."
-        sentry-cli releases files $RELEASE_NAME upload-sourcemaps dist
+        sentry-cli releases files $RELEASE_NAME upload-sourcemaps dist/browser
   volumes:
   - emptyDir: {}
     name: workspace-volume

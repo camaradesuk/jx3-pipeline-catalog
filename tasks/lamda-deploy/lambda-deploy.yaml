@@ -1,0 +1,97 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: lambda-deploy
+  annotations:
+    "lighthouse.jenkins-x.io/prependStepsURL": "https://syrf-pipelines.s3-eu-west-1.amazonaws.com/git-clone-version.yaml"
+spec:
+  stepTemplate:
+    name: ""
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+    volumeMounts:
+    - mountPath: /home/jenkins
+      name: workspace-volume
+    - mountPath: /etc/podinfo
+      name: podinfo
+      readOnly: true
+    workingDir: /workspace/source
+  steps:
+  - name: dotnet-restore
+    image: gcr.io/jenkinsxio/builder-dotnet:2.1.150-771
+    env:
+    - name: NEXUS_USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: nexus-credentials
+          key: username
+    - name: NEXUS_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: nexus-credentials
+          key: password
+    script: "if [ $(cat /workspace/.skip) = \"skip\" ]\nthen\n  echo \"skipping step\"\n
+      \ exit 0\nfi\nsource .jx/variables.sh\nenvsubst < nuget.config.template > nuget.config
+      \ndotnet restore \"${PROJECT_NAME}/${PROJECT_NAME}.csproj\"\n"
+  - name: deploy-to-lambda
+    image: chrissena/lambda-deploy:1.0
+    env:
+    - name: AWS_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: s3-credentials
+          key: key-id
+    - name: AWS_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: s3-credentials
+          key: access-key
+    - name: AWS_DEFAULT_REGION
+      valueFrom:
+        secretKeyRef:
+          name: s3-credentials
+          key: region
+    script: |
+      export PATH="$PATH:/root/.dotnet/tools"
+      PROJECT_NAME=$(cat ../project_name)
+      LAMBDA_FUNCTION_NAME=$(cat ../lambda_function_name)
+      cd "${PROJECT_NAME}"
+      dotnet lambda deploy-function $LAMBDA_FUNCTION_NAME --region eu-west-1 -frun dotnet
+  - name: github-tag-release
+    image: chrissena/gh:1.3.0
+    env:
+    - name: GITHUB_TOKEN
+      valueFrom:
+        secretKeyRef:
+          name: jx-pipeline-git-github-github
+          key: password
+    script: "if [ $(cat /workspace/.skip) = \"skip\" ]\nthen\n  echo \"skipping step\"\n
+      \ exit 0\nfi\nsource .jx/variables.sh\nCURRENT_SHA=$(git rev-parse HEAD)\nAPPEND=\"false\"\nPAUSE=$((
+      ( RANDOM % 10 ) ))\necho sleeping for $PAUSE seconds...\nsleep $PAUSE\nMATCHED_SHA=$(git
+      ls-remote --tags origin | grep -Po -m 1 $CURRENT_SHA || echo false)\nif [ $MATCHED_SHA
+      \ = \"false\" ]\nthen\n  TAG_PRESENT=\"false\"\nelif [ $MATCHED_SHA  = $CURRENT_SHA
+      ]\nthen\n  TAG_PRESENT=\"true\"\nelse\n  echo \"Something went wrong. Stopping...\"\n
+      \ exit 1\nfi\n(\n  [ $JOB_TYPE = \"presubmit\" ] &&\n  ( ([ $TAG_PRESENT = \"false\"
+      ]) && gh release create v${NUGET_VERSION} -t \"${PROJECT_NAME} v${NUGET_VERSION}\"
+      -p --target $CURRENT_SHA -F CHANGELOG.md -R ${REPO_URL})\n)  || \n(\n  [ $JOB_TYPE
+      = \"postsubmit\" ] &&\n  (([ $TAG_PRESENT = \"false\" ]) && gh release create
+      v${NUGET_VERSION} -t \"${PROJECT_NAME} v${NUGET_VERSION}\" --target $CURRENT_SHA
+      -F CHANGELOG.md -R ${REPO_URL})\n) || \nAPPEND=\"true\"\nif [ $APPEND = \"true\"
+      ]\nthen\n  API_URL=https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/tags/v${NUGET_VERSION}\n
+      \ RELEASE_JSON=$(curl -H \"Authorization: token ${GITHUB_TOKEN}\" -H \"Accept:
+      application/vnd.github.v3+json\" ${API_URL})\n  RELEASE_URL=$(echo $RELEASE_JSON
+      | jq -r .url)\n  OLD_NAME=$(echo $RELEASE_JSON | jq -r .name)\n  name=\"${PROJECT_NAME},
+      ${OLD_NAME}\"\n  curl \\\n    -X PATCH \\\n    -H \"Accept: application/vnd.github.v3+json\"
+      \\\n    -H \"Authorization: token ${GITHUB_TOKEN}\"\\\n    ${RELEASE_URL} \\\n
+      \   -d \"{\\\"name\\\":\\\"$name\\\"}\"\nfi\n"
+  volumes:
+  - emptyDir: {}
+    name: workspace-volume
+  - downwardAPI:
+      items:
+      - fieldRef:
+          fieldPath: metadata.labels
+        path: labels
+    name: podinfo
