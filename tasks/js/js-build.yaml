@@ -36,6 +36,17 @@ spec:
         limits:
           memory: 8Gi
       image: node:18-slim
+      env:
+        - name: SENTRY_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: sentry
+              key: auth-token
+        - name: SENTRY_ORG
+          valueFrom:
+            secretKeyRef:
+              name: sentry
+              key: organisation-slug
       script: |
         #!/bin/sh
         CI=true DISPLAY=:99 npm run build
